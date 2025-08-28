@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/native';
-import { ViewStyle } from 'react-native';
-import { Card, Text, Avatar } from 'react-native-elements';
+import { ViewStyle, View } from 'react-native';
+import { Text, Avatar } from 'react-native-elements';
 import theme from '../styles/theme';
 
 interface AppointmentCardProps {
@@ -35,7 +35,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   };
 
   return (
-    <Card containerStyle={[styles.card, style]}>
+    <CardContainer style={[styles.card, style]}>
       <CardContent>
         <DoctorInfo>
           <Avatar
@@ -68,7 +68,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           </StatusText>
         </StatusContainer>
       </CardContent>
-    </Card>
+    </CardContainer>
   );
 };
 
@@ -88,6 +88,19 @@ const styles = {
     backgroundColor: theme.colors.primary,
   },
 };
+
+const CardContainer = styled.View`
+  border-radius: 10px;
+  margin-horizontal: 0px;
+  margin-vertical: 8px;
+  padding: 15px;
+  background-color: #fff;
+  elevation: 3;
+  shadow-color: #000;
+  shadow-offset: 0px 2px;
+  shadow-opacity: 0.25;
+  shadow-radius: 3.84px;
+`;
 
 const CardContent = styled.View`
   padding: 10px;
@@ -147,13 +160,13 @@ const StatusDot = styled.View<{ color: string }>`
   width: 8px;
   height: 8px;
   border-radius: 4px;
-  background-color: ${props => props.color};
+  background-color: ${(props: { color: string }) => props.color};
   margin-right: 8px;
 `;
 
 const StatusText = styled.Text<{ color: string }>`
   font-size: 14px;
-  color: ${props => props.color};
+  color: ${(props: { color: string }) => props.color};
   font-weight: 500;
 `;
 

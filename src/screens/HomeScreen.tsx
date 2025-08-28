@@ -3,7 +3,7 @@ import styled from 'styled-components/native';
 import { FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { Button, Icon } from 'react-native-elements';
 import { FontAwesome } from '@expo/vector-icons';
-import { HeaderContainer, HeaderTitle } from '../components/Header';
+import Header from '../components/Header';
 import theme from '../styles/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -97,9 +97,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   return (
     <Container>
-      <HeaderContainer>
-        <HeaderTitle>Minhas Consultas</HeaderTitle>
-      </HeaderContainer>
+      <Header />
+      <PageHeaderContainer>
+        <PageHeaderTitle>Minhas Consultas</PageHeaderTitle>
+      </PageHeaderContainer>
 
       <Content>
         <Button
@@ -225,6 +226,19 @@ const EmptyText = styled.Text`
   color: ${theme.colors.text};
   opacity: 0.6;
   margin-top: ${theme.spacing.large}px;
+`;
+
+const PageHeaderContainer = styled.View`
+  padding: ${theme.spacing.medium}px;
+  background-color: ${theme.colors.background};
+  border-bottom-width: 1px;
+  border-bottom-color: ${theme.colors.border};
+`;
+
+const PageHeaderTitle = styled.Text`
+  font-size: 24px;
+  font-weight: bold;
+  color: ${theme.colors.text};
 `;
 
 export default HomeScreen;

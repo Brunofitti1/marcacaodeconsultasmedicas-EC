@@ -71,7 +71,7 @@ const styles = {
   },
   name: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold',
     color: theme.colors.text,
   },
   specialty: {
