@@ -1,97 +1,91 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import styled from 'styled-components/native';
-import { FlatList, RefreshControl, TouchableOpacity } from 'react-native';
-import { Button, Icon } from 'react-native-elements';
+import { FlatList, RefreshControl, Alert } from 'react-native';
+import { Button } from 'react-native-elements';
 import { FontAwesome } from '@expo/vector-icons';
 import Header from '../components/Header';
+import AppointmentCardComponent from '../components/AppointmentCard';
 import theme from '../styles/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appointment } from '../types/appointments';
-import { Doctor } from '../types/doctors';
 import { RootStackParamList } from '../types/navigation';
-import { useFocusEffect } from '@react-navigation/native';
+import { useAppointments } from '../hooks/useAppointments';
+import { useDoctors } from '../hooks/useDoctors';
+import { useAuth } from '../contexts/AuthContext';
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
 };
 
-const doctors: Doctor[] = [
-  {
-    id: '1',
-    name: 'Dr. João Silva',
-    specialty: 'Cardiologista',
-    image: 'https://mighty.tools/mockmind-api/content/human/91.jpg',
-  },
-  {
-    id: '2',
-    name: 'Dra. Maria Santos',
-    specialty: 'Dermatologista',
-    image: 'https://mighty.tools/mockmind-api/content/human/97.jpg',
-  },
-  {
-    id: '3',
-    name: 'Dr. Pedro Oliveira',
-    specialty: 'Oftalmologista',
-    image: 'https://mighty.tools/mockmind-api/content/human/79.jpg',
-  },
-];
-
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
+  const { user } = useAuth();
+  const { 
+    appointments, 
+    loading, 
+    refreshing, 
+    refreshAppointments, 
+    updateAppointmentStatus, 
+    deleteAppointment 
+  } = useAppointments();
+  
+  const { getDoctorById } = useDoctors();
 
-  const loadAppointments = async () => {
+  // Filtra consultas do usuário atual (se for paciente)
+  const userAppointments = user?.role === 'patient' 
+    ? appointments.filter(apt => apt.patientId === user.id)
+    : appointments;
+
+  const handleEditAppointment = (appointment: Appointment) => {
+    // Navegar para tela de edição
+    navigation.navigate('CreateAppointment');
+  };
+
+  const handleDeleteAppointment = async (appointmentId: string) => {
+    Alert.alert(
+      'Confirmar exclusão',
+      'Tem certeza que deseja cancelar esta consulta?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirmar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAppointment(appointmentId);
+              Alert.alert('Sucesso', 'Consulta cancelada com sucesso!');
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível cancelar a consulta.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleStatusChange = async (appointmentId: string, newStatus: 'confirmed' | 'cancelled' | 'pending') => {
     try {
-      const storedAppointments = await AsyncStorage.getItem('appointments');
-      if (storedAppointments) {
-        setAppointments(JSON.parse(storedAppointments));
-      }
+      await updateAppointmentStatus(appointmentId, newStatus);
+      Alert.alert('Sucesso', 'Status da consulta atualizado!');
     } catch (error) {
-      console.error('Erro ao carregar consultas:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar o status da consulta.');
     }
   };
 
-  useFocusEffect(
-    React.useCallback(() => {
-      loadAppointments();
-    }, [])
-  );
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadAppointments();
-    setRefreshing(false);
-  };
-
-  const getDoctorInfo = (doctorId: string): Doctor | undefined => {
-    return doctors.find(doctor => doctor.id === doctorId);
-  };
-
   const renderAppointment = ({ item }: { item: Appointment }) => {
-    const doctor = getDoctorInfo(item.doctorId);
+    const doctor = getDoctorById(item.doctorId);
     
     return (
-      <AppointmentCard>
-        <DoctorImage source={{ uri: doctor?.image || 'https://via.placeholder.com/100' }} />
-        <InfoContainer>
-          <DoctorName>{doctor?.name || 'Médico não encontrado'}</DoctorName>
-          <DoctorSpecialty>{doctor?.specialty || 'Especialidade não encontrada'}</DoctorSpecialty>
-          <DateTime>{new Date(item.date).toLocaleDateString()} - {item.time}</DateTime>
-          <Description>{item.description}</Description>
-          <Status status={item.status}>
-            {item.status === 'pending' ? 'Pendente' : 'Confirmado'}
-          </Status>
-          <ActionButtons>
-            <ActionButton>
-              <Icon name="edit" type="material" size={20} color={theme.colors.primary} />
-            </ActionButton>
-            <ActionButton>
-              <Icon name="delete" type="material" size={20} color={theme.colors.error} />
-            </ActionButton>
-          </ActionButtons>
-        </InfoContainer>
-      </AppointmentCard>
+      <AppointmentCardComponent
+        appointment={item}
+        doctorImage={doctor?.image}
+        onEdit={() => handleEditAppointment(item)}
+        onDelete={() => handleDeleteAppointment(item.id)}
+        onStatusChange={(status: 'confirmed' | 'cancelled' | 'pending') => handleStatusChange(item.id, status)}
+        showActions={user?.role === 'patient'}
+      />
     );
   };
 
@@ -123,11 +117,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         />
 
         <AppointmentList
-          data={appointments}
+          data={userAppointments}
           keyExtractor={(item: Appointment) => item.id}
           renderItem={renderAppointment}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={refreshAppointments} />
           }
           ListEmptyComponent={
             <EmptyText>Nenhuma consulta agendada</EmptyText>
@@ -150,75 +144,6 @@ const Content = styled.View`
 
 const AppointmentList = styled(FlatList)`
   flex: 1;
-`;
-
-const AppointmentCard = styled.View`
-  background-color: ${theme.colors.white};
-  border-radius: 8px;
-  padding: ${theme.spacing.medium}px;
-  margin-bottom: ${theme.spacing.medium}px;
-  flex-direction: row;
-  align-items: center;
-  elevation: 2;
-  shadow-color: #000;
-  shadow-opacity: 0.1;
-  shadow-radius: 4px;
-  shadow-offset: 0px 2px;
-`;
-
-const DoctorImage = styled.Image`
-  width: 60px;
-  height: 60px;
-  border-radius: 30px;
-  margin-right: ${theme.spacing.medium}px;
-`;
-
-const InfoContainer = styled.View`
-  flex: 1;
-`;
-
-const DoctorName = styled.Text`
-  font-size: ${theme.typography.subtitle.fontSize}px;
-  font-weight: ${theme.typography.subtitle.fontWeight};
-  color: ${theme.colors.text};
-`;
-
-const DoctorSpecialty = styled.Text`
-  font-size: ${theme.typography.body.fontSize}px;
-  color: ${theme.colors.text};
-  opacity: 0.8;
-  margin-bottom: 4px;
-`;
-
-const DateTime = styled.Text`
-  font-size: ${theme.typography.body.fontSize}px;
-  color: ${theme.colors.primary};
-  margin-top: 4px;
-`;
-
-const Description = styled.Text`
-  font-size: ${theme.typography.body.fontSize}px;
-  color: ${theme.colors.text};
-  opacity: 0.8;
-  margin-top: 4px;
-`;
-
-const Status = styled.Text<{ status: string }>`
-  font-size: ${theme.typography.body.fontSize}px;
-  color: ${(props: { status: string }) => props.status === 'pending' ? theme.colors.error : theme.colors.success};
-  margin-top: 4px;
-  font-weight: bold;
-`;
-
-const ActionButtons = styled.View`
-  flex-direction: row;
-  justify-content: flex-end;
-  margin-top: ${theme.spacing.small}px;
-`;
-
-const ActionButton = styled(TouchableOpacity)`
-  padding: ${theme.spacing.small}px;
-  margin-left: ${theme.spacing.small}px;
 `;
 
 const EmptyText = styled.Text`

@@ -1,37 +1,21 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components/native';
-import { ScrollView, ViewStyle, TextStyle } from 'react-native';
+import { ScrollView, ViewStyle, TextStyle, Alert } from 'react-native';
 import { Button, ListItem, Text } from 'react-native-elements';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import theme from '../styles/theme';
 import Header from '../components/Header';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AppointmentCardComponent from '../components/AppointmentCard';
+import { useAdminData } from '../hooks/useAdminData';
+import { useDoctors } from '../hooks/useDoctors';
+import { AppointmentStatus } from '../types/appointments';
 
 type AdminDashboardScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'AdminDashboard'>;
 };
-
-interface Appointment {
-  id: string;
-  patientId: string;
-  doctorId: string;
-  doctorName: string;
-  date: string;
-  time: string;
-  specialty: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'doctor' | 'patient';
-}
 
 interface StyledProps {
   status: string;
@@ -62,55 +46,22 @@ const getStatusText = (status: string) => {
 const AdminDashboardScreen: React.FC = () => {
   const { user, signOut } = useAuth();
   const navigation = useNavigation<AdminDashboardScreenProps['navigation']>();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    appointments, 
+    users, 
+    loading, 
+    stats, 
+    updateAppointmentStatus 
+  } = useAdminData();
+  
+  const { getDoctorById } = useDoctors();
 
-  const loadData = async () => {
+  const handleUpdateStatus = async (appointmentId: string, newStatus: AppointmentStatus) => {
     try {
-      // Carrega consultas
-      const storedAppointments = await AsyncStorage.getItem('@MedicalApp:appointments');
-      if (storedAppointments) {
-        const allAppointments: Appointment[] = JSON.parse(storedAppointments);
-        setAppointments(allAppointments);
-      }
-
-      // Carrega usuários
-      const storedUsers = await AsyncStorage.getItem('@MedicalApp:users');
-      if (storedUsers) {
-        const allUsers: User[] = JSON.parse(storedUsers);
-        setUsers(allUsers);
-      }
+      await updateAppointmentStatus(appointmentId, newStatus);
+      Alert.alert('Sucesso', 'Status da consulta atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Carrega os dados quando a tela estiver em foco
-  useFocusEffect(
-    React.useCallback(() => {
-      loadData();
-    }, [])
-  );
-
-  const handleUpdateStatus = async (appointmentId: string, newStatus: 'confirmed' | 'cancelled') => {
-    try {
-      const storedAppointments = await AsyncStorage.getItem('@MedicalApp:appointments');
-      if (storedAppointments) {
-        const allAppointments: Appointment[] = JSON.parse(storedAppointments);
-        const updatedAppointments = allAppointments.map(appointment => {
-          if (appointment.id === appointmentId) {
-            return { ...appointment, status: newStatus };
-          }
-          return appointment;
-        });
-        await AsyncStorage.setItem('@MedicalApp:appointments', JSON.stringify(updatedAppointments));
-        loadData(); // Recarrega os dados
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar o status da consulta.');
     }
   };
 
@@ -140,43 +91,43 @@ const AdminDashboardScreen: React.FC = () => {
         ) : appointments.length === 0 ? (
           <EmptyText>Nenhuma consulta agendada</EmptyText>
         ) : (
-          appointments.map((appointment) => (
-            <AppointmentCard key={appointment.id}>
-              <ListItem.Content>
-                <ListItem.Title style={styles.doctorName as TextStyle}>
-                  {appointment.doctorName}
-                </ListItem.Title>
-                <ListItem.Subtitle style={styles.specialty as TextStyle}>
-                  {appointment.specialty}
-                </ListItem.Subtitle>
-                <Text style={styles.dateTime as TextStyle}>
-                  {appointment.date} às {appointment.time}
-                </Text>
-                <StatusBadge status={appointment.status}>
-                  <StatusText status={appointment.status}>
-                    {getStatusText(appointment.status)}
-                  </StatusText>
-                </StatusBadge>
-                {appointment.status === 'pending' && (
-                  <ButtonContainer>
-                    <Button
-                      title="Confirmar"
-                      onPress={() => handleUpdateStatus(appointment.id, 'confirmed')}
-                      containerStyle={styles.actionButton as ViewStyle}
-                      buttonStyle={styles.confirmButton}
-                    />
-                    <Button
-                      title="Cancelar"
-                      onPress={() => handleUpdateStatus(appointment.id, 'cancelled')}
-                      containerStyle={styles.actionButton as ViewStyle}
-                      buttonStyle={styles.cancelButton}
-                    />
-                  </ButtonContainer>
-                )}
-              </ListItem.Content>
-            </AppointmentCard>
-          ))
+          appointments.slice(0, 5).map((appointment) => {
+            const doctor = getDoctorById(appointment.doctorId);
+            
+            return (
+              <AppointmentCardWrapper key={appointment.id}>
+                <AppointmentCardComponent
+                  appointment={appointment}
+                  doctorImage={doctor?.image}
+                  onStatusChange={(status: AppointmentStatus) => handleUpdateStatus(appointment.id, status)}
+                  showActions={appointment.status === 'pending'}
+                />
+              </AppointmentCardWrapper>
+            );
+          })
         )}
+
+        <StatsContainer>
+          <SectionTitle>Estatísticas</SectionTitle>
+          <StatsGrid>
+            <StatCard>
+              <StatNumber>{stats.totalAppointments}</StatNumber>
+              <StatLabel>Total de Consultas</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatNumber>{stats.pendingAppointments}</StatNumber>
+              <StatLabel>Pendentes</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatNumber>{stats.confirmedAppointments}</StatNumber>
+              <StatLabel>Confirmadas</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatNumber>{stats.totalUsers}</StatNumber>
+              <StatLabel>Usuários</StatLabel>
+            </StatCard>
+          </StatsGrid>
+        </StatsContainer>
 
         <Button
           title="Sair"
@@ -255,13 +206,8 @@ const SectionTitle = styled.Text`
   margin-top: 10px;
 `;
 
-const AppointmentCard = styled(ListItem)`
-  background-color: ${theme.colors.background};
-  border-radius: 8px;
-  margin-bottom: 10px;
-  padding: 15px;
-  border-width: 1px;
-  border-color: ${theme.colors.border};
+const AppointmentCardWrapper = styled.View`
+  margin-bottom: 12px;
 `;
 
 const LoadingText = styled.Text`
@@ -278,24 +224,38 @@ const EmptyText = styled.Text`
   margin-top: 20px;
 `;
 
-const StatusBadge = styled.View<StyledProps>`
-  background-color: ${(props: StyledProps) => getStatusColor(props.status) + '20'};
-  padding: 4px 8px;
-  border-radius: 4px;
-  align-self: flex-start;
-  margin-top: 8px;
+const StatsContainer = styled.View`
+  margin-top: 24px;
 `;
 
-const StatusText = styled.Text<StyledProps>`
-  color: ${(props: StyledProps) => getStatusColor(props.status)};
-  font-size: 12px;
-  font-weight: 500;
-`;
-
-const ButtonContainer = styled.View`
+const StatsGrid = styled.View`
   flex-direction: row;
+  flex-wrap: wrap;
   justify-content: space-between;
-  margin-top: 8px;
+`;
+
+const StatCard = styled.View`
+  background-color: ${theme.colors.white};
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  width: 48%;
+  align-items: center;
+  border: 1px solid ${theme.colors.border};
+`;
+
+const StatNumber = styled.Text`
+  font-size: 24px;
+  font-weight: bold;
+  color: ${theme.colors.primary};
+  margin-bottom: 4px;
+`;
+
+const StatLabel = styled.Text`
+  font-size: 14px;
+  color: ${theme.colors.text};
+  text-align: center;
+  opacity: 0.8;
 `;
 
 export default AdminDashboardScreen; 
