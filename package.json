@@ -1,7 +1,8 @@
 {
-  "name": "marcacaoDeConsultasMedicas",
+  "name": "medicare-plus",
   "license": "0BSD",
   "version": "1.0.0",
+  "description": "Sistema de Agendamento de Consultas Médicas - MediCare+",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
