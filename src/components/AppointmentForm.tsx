@@ -5,25 +5,28 @@ import { Platform, View, TouchableOpacity } from 'react-native';
 import theme from '../styles/theme';
 import { Doctor } from '../types/doctors';
 import { Appointment } from '../types/appointments';
+import { getSpecificDoctorImage, getDoctorImage } from '../constants/images';
+import FeedbackMessage from './FeedbackMessage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const doctors: Doctor[] = [
    {
       id: '1',
       name: 'Dr. João Silva',
-      specialty: 'Cardiologista',
-      image: 'https://mighty.tools/mockmind-api/content/human/91.jpg',
+      specialty: 'Cardiologia',
+      image: getSpecificDoctorImage('joao@example.com'),
    },
    {
       id: '2',
       name: 'Dra. Maria Santos',
-      specialty: 'Dermatologista',
-      image: 'https://mighty.tools/mockmind-api/content/human/97.jpg',
+      specialty: 'Pediatria',
+      image: getSpecificDoctorImage('maria@example.com'),
    },
    {
       id: '3',
       name: 'Dr. Pedro Oliveira',
-      specialty: 'Oftalmologista',
-      image: 'https://mighty.tools/mockmind-api/content/human/79.jpg',
+      specialty: 'Ortopedia',
+      image: getSpecificDoctorImage('pedro@example.com'),
    },
 ];
 
@@ -47,61 +50,93 @@ const generateTimeSlots = () => {
 
 const AppointmentForm: React.FC<AppointmentFormProps> = ({ onSubmit }) => {
    const [selectedDoctor, setSelectedDoctor] = useState<string>('');
-   const [dateInput, setDateInput] = useState('');
+   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+   const [showDatePicker, setShowDatePicker] = useState(false);
    const [selectedTime, setSelectedTime] = useState<string>('');
    const [description, setDescription] = useState('');
+   const [error, setError] = useState('');
+   const [dateError, setDateError] = useState('');
+   const [timeError, setTimeError] = useState('');
+   const [doctorError, setDoctorError] = useState('');
+   const [descriptionError, setDescriptionError] = useState('');
    const timeSlots = generateTimeSlots();
 
-   const validateDate = (inputDate: string) => {
-      const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-      const match = inputDate.match(dateRegex);
-
-      if (!match) return false;
-
-      const [, day, month, year] = match;
-      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+   const validateDate = (date: Date): boolean => {
       const today = new Date();
-      const maxDate = new Date(new Date().setMonth(new Date().getMonth() + 3));
-
-      return date >= today && date <= maxDate;
+      today.setHours(0, 0, 0, 0);
+      const maxDate = new Date();
+      maxDate.setMonth(maxDate.getMonth() + 3);
+      
+      if (date < today) {
+         setDateError('Data deve ser futura');
+         return false;
+      }
+      
+      if (date > maxDate) {
+         setDateError('Data deve ser nos próximos 3 meses');
+         return false;
+      }
+      
+      setDateError('');
+      return true;
    };
 
-   const handleDateChange = (text: string) => {
-      // Remove todos os caracteres não numéricos
-      const numbers = text.replace(/\D/g, '');
-      
-      // Formata a data enquanto digita
-      let formattedDate = '';
-      if (numbers.length > 0) {
-         if (numbers.length <= 2) {
-            formattedDate = numbers;
-         } else if (numbers.length <= 4) {
-            formattedDate = `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
-         } else {
-            formattedDate = `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
-         }
+   const handleDateChange = (event: any, selectedDate?: Date) => {
+      setShowDatePicker(Platform.OS === 'ios');
+      if (selectedDate) {
+         setSelectedDate(selectedDate);
+         validateDate(selectedDate);
+         setError('');
       }
+   };
 
-      setDateInput(formattedDate);
+   const validateDoctor = (): boolean => {
+      if (!selectedDoctor) {
+         setDoctorError('Selecione um médico');
+         return false;
+      }
+      setDoctorError('');
+      return true;
+   };
+
+   const validateTime = (): boolean => {
+      if (!selectedTime) {
+         setTimeError('Selecione um horário');
+         return false;
+      }
+      setTimeError('');
+      return true;
+   };
+
+   const validateDescription = (): boolean => {
+      if (!description.trim()) {
+         setDescriptionError('Descrição é obrigatória');
+         return false;
+      }
+      if (description.trim().length < 10) {
+         setDescriptionError('Descrição deve ter no mínimo 10 caracteres');
+         return false;
+      }
+      setDescriptionError('');
+      return true;
    };
 
    const handleSubmit = () => {
-      if (!selectedDoctor || !selectedTime || !description) {
-         alert('Por favor, preencha todos os campos');
+      setError('');
+      
+      const isDoctorValid = validateDoctor();
+      const isDateValid = validateDate(selectedDate);
+      const isTimeValid = validateTime();
+      const isDescriptionValid = validateDescription();
+
+      if (!isDoctorValid || !isDateValid || !isTimeValid || !isDescriptionValid) {
+         setError('Por favor, corrija os campos destacados');
          return;
       }
-
-      if (!validateDate(dateInput)) {
-         alert('Por favor, insira uma data válida (DD/MM/AAAA)');
-         return;
-      }
-
-      const [day, month, year] = dateInput.split('/');
-      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 
       onSubmit({
          doctorId: selectedDoctor,
-         date,
+         date: selectedDate,
          time: selectedTime,
          description,
       });
@@ -132,16 +167,42 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ onSubmit }) => {
             ))}
          </DoctorList>
 
+         {error && (
+            <FeedbackMessage
+               type="error"
+               message={error}
+               visible={!!error}
+               onDismiss={() => setError('')}
+            />
+         )}
+
+         {doctorError && (
+            <ErrorText>{doctorError}</ErrorText>
+         )}
+
          <Title>Data e Hora</Title>
-         <Input
-            placeholder="Data (DD/MM/AAAA)"
-            value={dateInput}
-            onChangeText={handleDateChange}
-            keyboardType="numeric"
-            maxLength={10}
-            containerStyle={InputContainer}
-            errorMessage={dateInput && !validateDate(dateInput) ? 'Data inválida' : undefined}
-         />
+         <DatePickerContainer>
+            <DatePickerButton onPress={() => setShowDatePicker(true)}>
+               <DatePickerText>
+                  {selectedDate.toLocaleDateString('pt-BR')}
+               </DatePickerText>
+            </DatePickerButton>
+         </DatePickerContainer>
+         
+         {showDatePicker && (
+            <DateTimePicker
+               value={selectedDate}
+               mode="date"
+               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+               onChange={handleDateChange}
+               minimumDate={new Date()}
+               maximumDate={new Date(new Date().setMonth(new Date().getMonth() + 3))}
+            />
+         )}
+         
+         {dateError && (
+            <ErrorText>{dateError}</ErrorText>
+         )}
 
          <TimeSlotsContainer>
             <TimeSlotsTitle>Horários Disponíveis:</TimeSlotsTitle>
@@ -164,13 +225,24 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ onSubmit }) => {
             </TimeSlotsGrid>
          </TimeSlotsContainer>
 
+         {timeError && (
+            <ErrorText>{timeError}</ErrorText>
+         )}
+
+         <Title>Descrição</Title>
          <Input
-            placeholder="Descrição da consulta"
+            placeholder="Descreva o motivo da consulta (mínimo 10 caracteres)"
             value={description}
-            onChangeText={setDescription}
+            onChangeText={(text) => {
+               setDescription(text);
+               setDescriptionError('');
+               setError('');
+            }}
+            onBlur={validateDescription}
             multiline
             numberOfLines={4}
             containerStyle={InputContainer}
+            errorMessage={descriptionError}
          />
 
          <SubmitButton
@@ -293,6 +365,34 @@ const InputContainer = {
 
 const SubmitButton = styled(Button)`
   margin-top: ${theme.spacing.large}px;
+`;
+
+const ErrorText = styled.Text`
+  color: ${theme.colors.error};
+  font-size: 12px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  margin-left: ${theme.spacing.small}px;
+`;
+
+const DatePickerContainer = styled.View`
+  margin-bottom: ${theme.spacing.medium}px;
+`;
+
+const DatePickerButton = styled(TouchableOpacity)`
+  background-color: ${theme.colors.surface};
+  padding: ${theme.spacing.medium}px;
+  border-radius: ${theme.borderRadius.medium}px;
+  border-width: 1px;
+  border-color: ${theme.colors.border};
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const DatePickerText = styled.Text`
+  font-size: ${theme.typography.body1.fontSize}px;
+  color: ${theme.colors.text};
 `;
 
 export default AppointmentForm; 
