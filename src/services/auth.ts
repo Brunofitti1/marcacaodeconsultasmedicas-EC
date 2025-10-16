@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
+import { getSpecificDoctorImage, ADMIN_IMAGE } from '../constants/images';
 
 // Chaves de armazenamento
 const STORAGE_KEYS = {
@@ -16,7 +17,7 @@ const mockDoctors = [
     email: 'joao@example.com',
     role: 'doctor' as const,
     specialty: 'Cardiologia',
-    image: 'https://randomuser.me/api/portraits/men/1.jpg',
+    image: getSpecificDoctorImage('joao@example.com'),
   },
   {
     id: '2',
@@ -24,7 +25,7 @@ const mockDoctors = [
     email: 'maria@example.com',
     role: 'doctor' as const,
     specialty: 'Pediatria',
-    image: 'https://randomuser.me/api/portraits/women/1.jpg',
+    image: getSpecificDoctorImage('maria@example.com'),
   },
   {
     id: '3',
@@ -32,7 +33,7 @@ const mockDoctors = [
     email: 'pedro@example.com',
     role: 'doctor' as const,
     specialty: 'Ortopedia',
-    image: 'https://randomuser.me/api/portraits/men/2.jpg',
+    image: getSpecificDoctorImage('pedro@example.com'),
   },
 ];
 
@@ -42,7 +43,7 @@ const mockAdmin = {
   name: 'Administrador',
   email: 'admin@example.com',
   role: 'admin' as const,
-  image: 'https://randomuser.me/api/portraits/men/3.jpg',
+  image: ADMIN_IMAGE,
 };
 
 // Lista de usuários cadastrados (pacientes)
@@ -98,15 +99,16 @@ export const authService = {
       throw new Error('Email já está em uso');
     }
 
+    // Importa a função getPatientImage
+    const { getPatientImage } = require('../constants/images');
+    
     // Cria um novo paciente
     const newPatient: User & { password: string } = {
       id: `patient-${registeredUsers.length + 1}`,
       name: data.name,
       email: data.email,
       role: 'patient' as const,
-      image: `https://randomuser.me/api/portraits/${registeredUsers.length % 2 === 0 ? 'men' : 'women'}/${
-        registeredUsers.length + 1
-      }.jpg`,
+      image: getPatientImage(registeredUsers.length, registeredUsers.length % 2 === 0 ? 'male' : 'female'),
       password: data.password,
     };
 
