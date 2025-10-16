@@ -1,16 +1,27 @@
 {
   "expo": {
-    "name": "marcacaoDeConsultasMedicas",
-    "slug": "marcacaoDeConsultasMedicas",
+    "name": "MediCare+",
+    "slug": "medicare-plus",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#00A859"
+    },
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.medicare.plus"
     },
     "android": {
-      "package": "com.hetec.marcacaoDeConsultasMedicas"
+      "package": "com.medicare.plus",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#00A859"
+      }
     },
     "extra": {
       "eas": {
